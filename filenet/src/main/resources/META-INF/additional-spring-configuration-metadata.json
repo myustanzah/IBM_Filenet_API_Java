@@ -1,0 +1,17 @@
+{"properties": [
+  {
+    "name": "filenet.url-filenet",
+    "type": "java.lang.String",
+    "description": "A description for 'filenet.url-filenet'"
+  },
+  {
+    "name": "filenet.username",
+    "type": "java.lang.String",
+    "description": "A description for 'filenet.username'"
+  },
+  {
+    "name": "filenet.password",
+    "type": "java.lang.String",
+    "description": "A description for 'filenet.password'"
+  }
+]}
