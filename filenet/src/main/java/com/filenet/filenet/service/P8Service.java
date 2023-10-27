@@ -1,13 +1,20 @@
 package com.filenet.filenet.service;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 
 import javax.security.auth.Subject;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.filenet.api.admin.StorageArea;
+import com.filenet.api.collection.ContentElementList;
 import com.filenet.api.collection.DocumentSet;
 import com.filenet.api.collection.ObjectStoreSet;
 import com.filenet.api.collection.RepositoryRowSet;
@@ -19,6 +26,7 @@ import com.filenet.api.constants.DefineSecurityParentage;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.constants.RefreshMode;
 import com.filenet.api.core.Connection;
+import com.filenet.api.core.ContentTransfer;
 import com.filenet.api.core.Document;
 import com.filenet.api.core.Domain;
 import com.filenet.api.core.Factory;
@@ -28,6 +36,7 @@ import com.filenet.api.core.ReferentialContainmentRelationship;
 // import com.filenet.api.core.Factory.StorageArea;
 import com.filenet.api.property.FilterElement;
 import com.filenet.api.property.Properties;
+import com.filenet.api.property.Property;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.query.RepositoryRow;
 import com.filenet.api.query.SearchSQL;
@@ -59,7 +68,6 @@ public class P8Service {
             String result = p8Connector.tryConnectionP8();
             return result;
         } catch (Exception e) {
-            // TODO: handle exception
             System.out.println(e);
             return "Error";
         }
@@ -143,7 +151,6 @@ public class P8Service {
 		    }
 		    return listDocument;
         } catch (Exception e) {
-            // TODO: handle exception
             e.printStackTrace();
             ArrayList<String> error = new ArrayList<>();
             error.add("INTERNAL SERVER ERROR");
@@ -199,7 +206,6 @@ public class P8Service {
             return "Succes";
             
         } catch (Exception e) {
-            // TODO: handle exception
             e.printStackTrace();
             return "Error";
         }
@@ -242,28 +248,44 @@ public class P8Service {
             UserContext.get().popSubject();
         }
     }
-
-    private static String updateDocument(ObjectStore os, String DocID, String newName){
+    @SuppressWarnings("rawtypes")
+    private static String updateDocument(ObjectStore os, String DocID, String newName) throws Exception {
         try {
 
             // Get document and populate property cache.
             PropertyFilter pf = new PropertyFilter();
             pf.addIncludeProperty(new FilterElement(null, null, null, "DocumentTitle", null));
+            pf.addIncludeProperty(new FilterElement(null, null, null, PropertyNames.MIME_TYPE, null));
             Document doc = Factory.Document.fetchInstance(os, new Id(DocID),pf );
+            // doc.set_MimeType("text/plain");
+            String jenisFile = doc.get_MimeType();
+            System.out.println("jenis file >>>>> " +jenisFile);
 
             // Return document properties.
             com.filenet.api.property.Properties props = doc.getProperties();
 
+
+            // Iterate the set and print property values. 
+            Iterator iter = props.iterator();
+            System.out.println("Property" +"\t" + "Value");
+            System.out.println("------------------------");
+            while (iter.hasNext() )
+            {
+                Property prop = (Property)iter.next();
+                if (prop.getPropertyName().equals("DocumentTitle") )
+                    System.out.println(prop.getPropertyName() + "\t" + prop.getStringValue() );
+                else if (prop.getPropertyName().equals(PropertyNames.MIME_TYPE) )
+                    System.out.println(prop.getPropertyName() + "\t" + prop.getStringValue() );
+            }
+
             // Change property value.
             props.putValue("DocumentTitle", newName);
-            doc.set_MimeType("text/plain");
 
             // Save and update property cache.
-            doc.save(RefreshMode.REFRESH );
+            doc.save(RefreshMode.REFRESH);
             
             return "Succes";
         } catch (Exception e) {
-            // TODO: handle exception
             e.printStackTrace();
             return "Error";
         }
@@ -340,11 +362,194 @@ public class P8Service {
 
             return "Success";
         } catch (Exception e) {
-            // TODO: handle exception
             e.printStackTrace();
             return "Error";
         }
     }
 
-    
+    public String uploadDocument(JsonNode data, MultipartFile file){
+        // Make connection.
+        Connection conn = Factory.Connection.getConnection(uri);
+        Subject subject = UserContext.createSubject(conn, username, password, null);
+        UserContext.get().pushSubject(subject);
+
+        try {
+        // Get default domain.
+
+            Domain domain = Factory.Domain.fetchInstance(conn, null, null);
+            System.out.println("Domain: " + domain.get_Name());
+
+            // Get object stores for domain.
+            ObjectStoreSet osSet = domain.get_ObjectStores();
+            ObjectStore store = null;
+            
+            @SuppressWarnings("rawtypes")
+            Iterator osIter = osSet.iterator();
+
+                while (osIter.hasNext()) {
+                    store = (ObjectStore) osIter.next();
+                }
+            System.out.println("Object store: " + store.get_Name());
+
+            String resultCreate = uploadDocument(store, data, file);
+
+            return resultCreate;
+            
+        } catch(Exception e) {
+            
+            e.printStackTrace();
+            return "INTERNAL SERVER ERROR";
+
+        } finally {
+            UserContext.get().popSubject();
+        }
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static String uploadDocument(ObjectStore os, JsonNode data, MultipartFile file){
+        try {
+
+            String storageId  = "{9D6E75B7-91C5-4232-852E-6BAF333B18A0}";
+            String FolderId = "{3A064AA6-B437-CD65-8716-837E8C000000}";
+            String nameFile = data.get("name").asText();
+
+            // Create a document instance.
+            Document doc = Factory.Document.createInstance(os, ClassNames.DOCUMENT);
+
+            // Tambahan
+            ContentElementList ctl = Factory.ContentElement.createList();
+            ContentTransfer ct = Factory.ContentTransfer.createInstance();
+            
+            File fileTemp = File.createTempFile("temp", null);
+
+            try(FileOutputStream fos = new FileOutputStream(fileTemp)){
+                fos.write(file.getBytes());
+            }
+
+            ct.setCaptureSource(new java.io.FileInputStream(fileTemp));
+            ctl.add(ct);
+            doc.set_ContentElements(ctl);
+
+
+            // Set document properties.
+            doc.getProperties().putValue("DocumentTitle", nameFile);
+            doc.set_MimeType(file.getContentType());
+
+            // StorageArea sa = Factory.StorageArea.getInstance(os, new Id(storageId) );
+
+            // doc.set_StorageArea(sa);
+            // doc.save(RefreshMode.NO_REFRESH );
+
+            // Check in the document.
+            doc.checkin(AutoClassify.DO_NOT_AUTO_CLASSIFY, CheckinType.MAJOR_VERSION);
+            doc.save(RefreshMode.NO_REFRESH);
+
+            // File the document.
+            Folder folder = Factory.Folder.getInstance(os, ClassNames.FOLDER,
+                    new Id(FolderId) );
+            ReferentialContainmentRelationship rcr = folder.file(doc,
+                    AutoUniqueName.AUTO_UNIQUE, "New Document via Java API",
+                    DefineSecurityParentage.DO_NOT_DEFINE_SECURITY_PARENTAGE);
+            rcr.save(RefreshMode.NO_REFRESH);
+
+            return "Success";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Error";
+        }
+    }
+
+
+    protected static PropertyFilter initPropertyFilter() {
+		PropertyFilter pf = new PropertyFilter();
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CLASS_DESCRIPTION, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.ID, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.NAME, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTAINED_DOCUMENTS, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTAINMENT_NAME, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTAINERS, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTAINEES, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTENT_ELEMENTS, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.RETRIEVAL_NAME, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.IS_CURRENT_VERSION, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.IS_RESERVED, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CURRENT_VERSION, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.MIME_TYPE, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.TAIL, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.MAJOR_VERSION_NUMBER, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.FOLDERS_FILED_IN, null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.FOLDER_NAME, null));
+
+		pf.addIncludeProperty(new FilterElement(1, null, null, "HospitalUnit", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "FolderProcess", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "InvoiceNo", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "AdmissionNo", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "PayerID", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "PayerName", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "DocumentType", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "MrNo", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "LOB", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "ListAdmissionNo", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "DocumentTitle", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "InvoiceType", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "PayerGroup", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "OriginalFilename", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "IDCard", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "QueueId", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "PatientName", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "IsUpdateVersion", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "IsDuplicateDoc", null));
+
+		pf.addIncludeProperty(new FilterElement(1, null, null, "UnitIDAX", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "CustomerAccountCodeAX", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "DocTrxDate", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "DocumentType", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "RetryCount", null));
+		pf.addIncludeProperty(new FilterElement(1, null, null, "UUID", null));
+		return pf;
+	}
+
+
+    private static void store(MultipartFile fileupload) throws FileNotFoundException, IOException { 
+     	  Connection conn = Factory.Connection.getConnection(uri);
+          UserContext.get().pushSubject(UserContext.createSubject(conn, username, password, null));
+             
+          Domain domain = Factory.Domain.fetchInstance(conn, null, null);
+          ObjectStore os = Factory.ObjectStore.fetchInstance(domain, objectStoreName, null);
+           
+        // Get document and populate property cache.
+           PropertyFilter pf = new PropertyFilter();
+           pf.addIncludeProperty(new FilterElement(null, null, null, "DocumentTitle", null));
+           Document doc = Factory.Document.createInstance(os, ClassNames.DOCUMENT);
+	       ContentElementList contentElementList = Factory.ContentElement.createList();
+	       ContentTransfer contentTransfer = Factory.ContentTransfer.createInstance();
+	       File file = File.createTempFile("temp", null);
+	       try (FileOutputStream fos = new FileOutputStream(file)) {
+	           fos.write(fileupload.getBytes());
+	       }
+	       contentTransfer.setCaptureSource(new java.io.FileInputStream(file));
+	       contentElementList.add(contentTransfer);
+	       doc.set_ContentElements(contentElementList); 
+	       
+	          // Set document properties.
+	          doc.getProperties().putValue("DocumentTitle", fileupload.getOriginalFilename());	          
+	          doc.set_MimeType(fileupload.getContentType());
+	          //doc.accessContentStream(0);
+	          
+	          doc.save(RefreshMode.NO_REFRESH );
+	          
+	          // Check in the document.
+	          doc.checkin(AutoClassify.DO_NOT_AUTO_CLASSIFY, CheckinType.MAJOR_VERSION);
+	          doc.save(RefreshMode.NO_REFRESH);
+
+	          // File the document.
+	          Folder folder = Factory.Folder.getInstance(os, ClassNames.FOLDER,
+	                  new Id("{009E468B-0000-C210-8686-461FF52CAA72}") );
+	          ReferentialContainmentRelationship rcr = folder.file(doc,
+	                  AutoUniqueName.AUTO_UNIQUE, "New Document via Java API",
+	                  DefineSecurityParentage.DO_NOT_DEFINE_SECURITY_PARENTAGE);
+	          rcr.save(RefreshMode.NO_REFRESH);
+      }
+
+
 }

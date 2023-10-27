@@ -2,6 +2,7 @@ package com.filenet.filenet.controller;
 
 import java.util.ArrayList;
 
+import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,7 +45,6 @@ public class BaseController extends Controller {
             return ResponseEntity.ok(result);
             
         } catch (Exception e) {
-            // TODO: handle exception
             System.out.println(e);
             return ResponseEntity.ok("Error");
         }
@@ -58,7 +58,6 @@ public class BaseController extends Controller {
             System.out.println(listDocument);
             return ResponseEntity.ok(getSuccessJson(200, "Success", listDocument));
         } catch (Exception e) {
-            // TODO: handle exception
             return ResponseEntity.ok(getInternalServerErrorJson());
         }
     }
@@ -70,7 +69,6 @@ public class BaseController extends Controller {
 
             return ResponseEntity.ok(getSuccessJson(200, "Success Delete", resultDelete));
         } catch (Exception e) {
-            // TODO: handle exception
             return ResponseEntity.ok(getInternalServerErrorJson());
         }
     }
@@ -82,7 +80,6 @@ public class BaseController extends Controller {
             // return getSuccessJson(0, docId, docId);
             return ResponseEntity.ok(getSuccessJson(0, resultUpdate, newName));
         } catch (Exception e) {
-            // TODO: handle exception
             return ResponseEntity.ok(getInternalServerErrorJson());
         }
     }
@@ -94,7 +91,6 @@ public class BaseController extends Controller {
             String resultCreate = p8Service.createDocument(payload);
             return ResponseEntity.ok(getSuccessJson(201, resultCreate, payload));
         } catch (Exception e) {
-            // TODO: handle exception
             return ResponseEntity.ok(getInternalServerErrorJson());
         }
     }
@@ -102,11 +98,25 @@ public class BaseController extends Controller {
     @PostMapping("/upload")
     public ResponseEntity<JsonNode> uploadDocument(@RequestParam("data") String data, @RequestParam("file") MultipartFile file){
         try {
+            // String jsonString = "{\"name\":\"John\",\"age\":30,\"city\":\"New York\"}";
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(data);
-            return ResponseEntity.ok(getSuccessJson(200, "Success", jsonNode));
+            String name = jsonNode.get("name").asText();
+
+            System.out.println("New Name" + name);
+            
+            if (!file.isEmpty()) {
+                String fileName = file.getOriginalFilename();
+                
+                // Lakukan operasi yang sesuai dengan berkas yang diunggah
+                System.out.println("Uploaded File Name: " + fileName);
+                // Simpan berkas ke sistem file atau tempat penyimpanan yang sesuai
+            }
+            String resultUpload = p8Service.uploadDocument(jsonNode, file);
+
+            return ResponseEntity.ok(getSuccessJson(200, "Success", resultUpload));
         } catch (Exception e) {
-            // TODO: handle exception
+            e.printStackTrace();
             return ResponseEntity.ok(getInternalServerErrorJson());
         }
     }

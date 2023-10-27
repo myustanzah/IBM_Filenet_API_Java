@@ -8,9 +8,7 @@ import javax.security.auth.Subject;
 import com.filenet.api.collection.DocumentSet;
 import com.filenet.api.collection.ObjectStoreSet;
 import com.filenet.api.collection.RepositoryRowSet;
-import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.PropertyNames;
-import com.filenet.api.constants.RefreshMode;
 import com.filenet.api.core.Connection;
 import com.filenet.api.core.Domain;
 import com.filenet.api.core.Factory;
@@ -23,7 +21,6 @@ import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.query.RepositoryRow;
 import com.filenet.api.query.SearchSQL;
 import com.filenet.api.query.SearchScope;
-import com.filenet.api.util.Id;
 import com.filenet.api.util.UserContext;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -148,108 +145,5 @@ public class P8Connector {
 		}
         
 		return listDocument;
-	}
-
-    private static String deleteDocument(ObjectStore os, String DocId){
-        try {
-
-            Document doc = Factory.Document.getInstance(os, ClassNames.DOCUMENT, new Id(DocId) );
-            doc.delete();
-            doc.save(RefreshMode.NO_REFRESH);
-
-            return "Succes";
-            
-        } catch (Exception e) {
-            // TODO: handle exception
-            e.printStackTrace();
-            return "Error";
-        }
-    }
-
-    private static String createDocument(){
-        try {
-            
-
-            return "Succes";
-        } catch (Exception e) {
-            // TODO: handle exception
-            e.printStackTrace();
-            return "Error";
-        }
-    }
-
-    private static String updateDocument(ObjectStore os, String DocID){
-        try {
-
-            // Get document and populate property cache.
-            PropertyFilter pf = new PropertyFilter();
-            pf.addIncludeProperty(new FilterElement(null, null, null, "DocumentTitle", null));
-            Document doc = Factory.Document.fetchInstance(os, new Id(DocID),pf );
-
-            // Return document properties.
-            com.filenet.api.property.Properties props = doc.getProperties();
-
-            // Change property value.
-            props.putValue("DocumentTitle", "UPDATE VIA API SPRINGBOOT");
-
-            // Save and update property cache.
-            doc.save(RefreshMode.REFRESH );
-            
-            return "Succes";
-        } catch (Exception e) {
-            // TODO: handle exception
-            e.printStackTrace();
-            return "Error";
-        }
-    }
-
-
-    private static PropertyFilter initPropertyFilter() {
-		PropertyFilter pf = new PropertyFilter();
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CLASS_DESCRIPTION, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.ID, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.NAME, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTAINED_DOCUMENTS, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTAINMENT_NAME, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTAINERS, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTAINEES, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CONTENT_ELEMENTS, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.RETRIEVAL_NAME, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.IS_CURRENT_VERSION, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.IS_RESERVED, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.CURRENT_VERSION, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.MIME_TYPE, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.TAIL, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.MAJOR_VERSION_NUMBER, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.FOLDERS_FILED_IN, null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, PropertyNames.FOLDER_NAME, null));
-
-		pf.addIncludeProperty(new FilterElement(1, null, null, "HospitalUnit", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "FolderProcess", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "InvoiceNo", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "AdmissionNo", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "PayerID", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "PayerName", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "DocumentType", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "MrNo", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "LOB", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "ListAdmissionNo", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "DocumentTitle", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "InvoiceType", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "PayerGroup", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "OriginalFilename", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "IDCard", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "QueueId", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "PatientName", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "IsUpdateVersion", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "IsDuplicateDoc", null));
-
-		pf.addIncludeProperty(new FilterElement(1, null, null, "UnitIDAX", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "CustomerAccountCodeAX", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "DocTrxDate", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "DocumentType", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "RetryCount", null));
-		pf.addIncludeProperty(new FilterElement(1, null, null, "UUID", null));
-		return pf;
 	}
 }
